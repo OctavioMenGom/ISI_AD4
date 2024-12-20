@@ -26,7 +26,7 @@
 
     <div class="container">
         <div class="header">
-            <h3>Pre Cotización</h3>
+            <h3>Hoja de Validación Pre Cotización</h3>
             <div class="logo-container">
                 <img src="images\Logo ISI simple.png" alt="Logo ISI simple">
                 <img src="images\logo mic.jpg" alt="Logo mic">
@@ -36,9 +36,10 @@
         <p></p>
         <form name="google-sheet" autocomplete="off" method="post">
             <div class="input-list">
-                <div class="input-container">
-                    <label for="falla">Folio Pre Cotización</label>
-                    <input type="text" id="falla" name="falla" placeholder="Escribe el No. Folio de la pre cotización...">
+                <div class="input-container" style="display: flex">
+                    <label >Folio Pre Cotización</label>
+                    <input type="text" id="folio" name="folio" placeholder="Folio generado automáticamente" readonly>
+                    <button type="button" onclick="generateFolio()">Generar Folio</button>
                 </div>
             </div> 
             <p></p>
@@ -95,7 +96,7 @@
                 </div>
             </div>  
             <p></p>
-            <!-- Segunda tabla -->
+
             <table id="dynamicTable"> 
                 <tr>
                     <th>Cantidad</th>
@@ -104,16 +105,17 @@
                     <th>P.U.</th>
                     <th>Total</th>
                 </tr>
+
                 <tr>
-                    <td><input type="text" name="input0_row1" /></td>
+                    <td><input type="text" name="input0_row1" onchange="calculateRowTotal(this)" /></td>
                     <td><input type="text" name="input1_row1" /></td> 
                     <td><input type="text" name="input2_row1" /></td>
-                    <td><input type="text" name="input3_row1" /></td> 
-                    <td><input type="text" name="input4_row1" onchange="sumarCostos()" /></td> 
+                    <td><input type="text" name="input3_row1" onchange="calculateRowTotal(this)" /></td> 
+                    <td><input type="text" name="input4_row1" readonly/></td> 
                 </tr> 
+
             </table>
-           
-            <!-- Botones -->
+
             <div class="button-container">
                 <button class="add" type="button" onclick="addRow()">+</button>
                 <button class="remove" type="button" onclick="removeRow()">-</button>
@@ -121,31 +123,12 @@
 
             <table border="1">
                 <tr>
-                    <td><b>Total Refacciones</b></td>
-                    <td><input type="text" id="totalMonto" name="totalMonto" readonly/></td> 
-                </tr>
-            </table>
-
-            <table id="dynamicTable"> 
-                <tr>
-                    <th>Mano de obra</th>
-                    <th>Total</th>
-                </tr>
-                <tr>
-                    <td><input type="text" name="input0_row1" /></td>
-                    <td><input type="text" name="input4_row1" onchange="sumarCostos()" /></td> 
-                </tr> 
-            </table> 
-
-            <table border="1">
-                <tr>
                     <td><b>Subtotal</b></td>
-                    <td><input type="text" id="totalMonto" name="totalMonto" readonly/></td> 
+                    <td><input type="text" id="subtotalMonto" name="subtotalMonto" readonly/></td> 
                 </tr>
                 <tr>
-
                     <td><b>IVA</b></td>
-                    <td><input type="text" id="totalMonto" name="totalMonto" readonly/></td> 
+                    <td><input type="text" id="ivaMonto" name="ivaMonto" readonly/></td> 
                 </tr>
                 <tr>
                     <td><b>Total</b></td>
@@ -169,11 +152,11 @@
         function addRow(tableId = "dynamicTable") {
             var table = document.getElementById(tableId);
             var row = table.insertRow(-1);
-            for (var i = 0; i < 5; i++) { // Ajustado a 5 para incluir la columna "Costo"
+            for (var i = 0; i < 5; i++) { 
                 var cell = row.insertCell(i);
-                cell.innerHTML = `<input type="text" name="${tableId}_input${i}_row${table.rows.length - 1}" onchange="sumarCostos()" />`;
+                cell.innerHTML = `<input type="text" name="${tableId}_input${i}_row${table.rows.length - 1}" onchange="calculateRowTotal(this)" />`;
             }
-            sumarCostos(); // Actualiza la suma al agregar una nueva fila
+            calculateTotal();
         }
 
         function removeRow(tableId = "dynamicTable") {
@@ -181,76 +164,38 @@
             var rowCount = table.rows.length;
             if (rowCount > 2) {
                 table.deleteRow(-1);
-                sumarCostos(); // Actualiza la suma al eliminar una fila
+                calculateTotal();
             } else {
                 alert('No se puede eliminar la fila inicial.');
             }
         }
 
-        function sumarCostos() {
-            var tables = document.querySelectorAll('table');
-            var total = 0;
-
-            tables.forEach(function(table) {
-                for (var i = 1; i < table.rows.length; i++) { // Comienza en 1 para omitir el encabezado
-                    var cells = table.rows[i].cells;
-                    if (cells.length > 4) {
-                        var costo = cells[4].getElementsByTagName("input")[0].value;
-                        total += parseFloat(costo) || 0; // Suma y convierte el valor a número
-                    }
-                }
-            });
-
-            document.getElementById("totalMonto").value = total.toFixed(2); // Muestra el total en la tabla "Monto"
+        function calculateRowTotal(input) {
+            var row = input.parentNode.parentNode;
+            var cantidad = parseFloat(row.cells[0].children[0].value) || 0;
+            var pu = parseFloat(row.cells[3].children[0].value) || 0;
+            row.cells[4].children[0].value = (cantidad * pu).toFixed(2);
+            calculateTotal();
         }
 
-        function addTable() {
-            var container = document.querySelector('.container');
-            var tableContainer = document.createElement('div');
-            tableContainer.classList.add('table-container');
-
-            var newTable = document.createElement('table');
-            var tableId = `newTable_${document.querySelectorAll('.table-container').length + 1}`;
-            newTable.id = tableId;
-            newTable.border = "1";
-
-            var headerRow = newTable.insertRow();
-            var headers = ["Cantidad", "UM", "Descripción", "P.U.", "Costo"];
-            headers.forEach(function(header) {
-                var cell = document.createElement('th');
-                cell.textContent = header;
-                headerRow.appendChild(cell);
-            });
-
-            // Añadir una fila de ejemplo
-            var exampleRow = newTable.insertRow();
-            for (var i = 0; i < headers.length; i++) {
-                var cell = exampleRow.insertCell();
-                cell.innerHTML = `<input type="text" name="${tableId}_input${i}_row0" onchange="sumarCostos()" />`;
+        function calculateTotal() {
+            var table = document.getElementById('dynamicTable');
+            var rows = table.rows;
+            var subtotal = 0;
+            for (var i = 1; i < rows.length; i++) {
+                var total = parseFloat(rows[i].cells[4].children[0].value) || 0;
+                subtotal += total;
             }
-
-            // Añadir botones de agregar y quitar fila
-            var buttonContainer = document.createElement('div');
-            buttonContainer.classList.add('button-container');
-            buttonContainer.innerHTML = `
-                <button class="add" type="button" onclick="addRow('${tableId}')">+</button>
-                <button class="remove" type="button" onclick="removeRow('${tableId}')">-</button>
-            `;
-
-            tableContainer.appendChild(newTable);
-            tableContainer.appendChild(buttonContainer);
-            container.appendChild(tableContainer);
+            document.getElementById('subtotalMonto').value = subtotal.toFixed(2);
+            var iva = subtotal * 0.16;
+            document.getElementById('ivaMonto').value = iva.toFixed(2);
+            var totalMonto = subtotal + iva;
+            document.getElementById('totalMonto').value = totalMonto.toFixed(2);
         }
 
-        function removeTable() {
-            var container = document.querySelector('.container');
-            var tables = container.querySelectorAll('.table-container');
-            if (tables.length > 0) { 
-                container.removeChild(tables[tables.length - 1]);
-                sumarCostos(); // Actualiza la suma al eliminar una tabla
-            } else {
-                alert('No hay tablas adicionales para eliminar.');
-            }
+        function generateFolio() {
+            var folio = "FPC" + Math.random().toString(36).substring(2, 10).toUpperCase();
+            document.getElementById('folio').value = folio;
         }
     </script>
 </body>
